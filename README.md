@@ -147,3 +147,104 @@ Now, if you need to change the default percentage, you can just change the `DEFA
 - The shortcode will display the discount that was set during the action hook.
   
 You can now trigger `do_action()` with different discount values based on specific conditions or leave it as the default `10%`. Does that solution work for you?
+
+<br>
+<hr>
+<br>
+
+USING: 
+
+``` get_user_meta() ``` and ``` update_user_meta() ```
+
+there are several alternative ways to manage and apply user role–based discounts in WordPress without relying on `set_transient()` (which is a short-lived, cached option). Here are a few other approaches depending on your use case:
+
+---
+
+### 🔁 **1. Use `get_user_meta()` and `update_user_meta()`**
+If you want the discount to persist longer and be user-specific, storing it as user meta is more stable than transients:
+
+```php
+function set_discount_by_user_role() {
+    if ( ! is_user_logged_in() ) {
+        return;
+    }
+
+    $user = wp_get_current_user();
+    $roles = (array) $user->roles;
+    $discount = 0;
+
+    if ( in_array( 'client', $roles ) ) {
+        $discount = 10;
+    } elseif ( in_array( 'manager', $roles ) ) {
+        $discount = 5;
+    } elseif ( in_array( 'subscriber', $roles ) ) {
+        $discount = 2;
+    }
+
+    update_user_meta( $user->ID, 'custom_discount', $discount );
+}
+
+// To retrieve it:
+$discount = get_user_meta( $user_id, 'custom_discount', true );
+```
+
+✅ **Pros**: Persistent, user-specific, doesn't expire  
+❌ **Cons**: Slightly heavier database load if used frequently
+
+---
+
+### 📦 **2. Use a global function to calculate on the fly**
+If you don’t need to persist the value and it's quick to compute, calculate it each time instead of storing:
+
+```php
+function get_discount_by_user_role( $user_id = null ) {
+    if ( ! $user_id ) {
+        $user_id = get_current_user_id();
+    }
+
+    $user = get_user_by( 'id', $user_id );
+    $roles = (array) $user->roles;
+
+    if ( in_array( 'client', $roles ) ) {
+        return 10;
+    } elseif ( in_array( 'manager', $roles ) ) {
+        return 5;
+    } elseif ( in_array( 'subscriber', $roles ) ) {
+        return 2;
+    }
+
+    return 0;
+}
+```
+
+✅ **Pros**: No storage needed, always up-to-date  
+❌ **Cons**: Minor overhead on each call (but usually negligible)
+
+---
+
+<br>
+USING: 
+<br> <h3> Store in session (via PHP or plugin like WP Session Manager) </h3>
+
+### 🧠 **3. Store in session (via PHP or plugin like WP Session Manager)**
+If you're using WooCommerce or another plugin with sessions, you can store the discount there:
+
+```php
+WC()->session->set( 'custom_discount', $discount );
+$discount = WC()->session->get( 'custom_discount' );
+```
+
+✅ **Pros**: Session-based, better than transient for logged-in sessions  
+❌ **Cons**: Only works when sessions are initialized, e.g., with WooCommerce or custom session handlers
+
+---
+
+### 🧩 **4. Use a custom database table (advanced)**
+For scalable systems or heavy discount logic, creating a custom table with user ID and discount may be useful.
+
+✅ **Pros**: Scalable, organized  
+❌ **Cons**: Requires more setup (custom schema, queries, sanitization)
+
+---
+
+Would you like help deciding which approach fits best for your current project setup?
